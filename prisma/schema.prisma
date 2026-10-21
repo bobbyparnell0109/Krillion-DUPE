@@ -1,0 +1,188 @@
+// DEEPDIVE database schema (Postgres).
+// SQLite for local dev: `npm run db:sqlite` derives prisma/sqlite/schema.prisma from this file,
+// so keep the schema portable: no enums, no native types, JSON lists stored as text.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// A "Name a ___" prompt in the bank.
+model Prompt {
+  id               String   @id @default(cuid())
+  text             String
+  /// Normalised text, used for exact de-duplication.
+  normalized       String   @unique
+  /// Sorted, stemmed content words, used for similarity de-duplication.
+  signature        String
+  category         String
+  /// easy | medium | hard
+  difficulty       String   @default("medium")
+  /// narrow | medium | wide (how many valid answers exist)
+  breadth          String   @default("medium")
+  /// active | retired
+  status           String   @default("active")
+  /// starter | ai | admin
+  source           String   @default("ai")
+  timesServed      Int      @default(0)
+  totalSubmissions Int      @default(0)
+  validSubmissions Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  answers     Answer[]
+  submissions Submission[]
+  reviewItems ReviewItem[]
+  judgements  JudgementCache[]
+
+  @@index([status, timesServed])
+  @@index([category])
+}
+
+/// An accepted answer for a prompt.
+model Answer {
+  id         String   @id @default(cuid())
+  promptId   String
+  canonical  String
+  normalized String
+  /// AI prior: 1 = very common ... 5 = very rare
+  priorTier  Int      @default(3)
+  /// Live count of players who gave this answer.
+  count      Int      @default(0)
+  /// starter | ai | review | judge | admin
+  source     String   @default("ai")
+  createdAt  DateTime @default(now())
+
+  prompt      Prompt        @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  aliases     AnswerAlias[]
+  submissions Submission[]
+
+  @@unique([promptId, normalized])
+  @@index([promptId])
+}
+
+/// Alternative spellings and synonyms that map onto a canonical answer.
+model AnswerAlias {
+  id         String @id @default(cuid())
+  answerId   String
+  promptId   String
+  normalized String
+
+  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, normalized])
+}
+
+/// Every answer a player submits (valid or not).
+model Submission {
+  id         String   @id @default(cuid())
+  promptId   String
+  answerId   String?
+  runId      String?
+  raw        String
+  normalized String
+  /// daily | infinite
+  mode       String
+  valid      Boolean
+  tier       Int      @default(0)
+  points     Int      @default(0)
+  /// exact | alias | fuzzy | cache | ai | none | timeout
+  matchedBy  String
+  createdAt  DateTime @default(now())
+
+  prompt Prompt  @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  answer Answer? @relation(fields: [answerId], references: [id], onDelete: SetNull)
+
+  @@index([promptId, createdAt])
+}
+
+/// Cached AI (or admin) judgement so the same answer is never judged twice.
+model JudgementCache {
+  id         String   @id @default(cuid())
+  promptId   String
+  normalized String
+  valid      Boolean
+  answerId   String?
+  reason     String   @default("")
+  createdAt  DateTime @default(now())
+
+  prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, normalized])
+}
+
+/// Admin review queue for rejected / unjudged / newly AI-accepted answers.
+model ReviewItem {
+  id          String   @id @default(cuid())
+  promptId    String
+  raw         String
+  normalized  String
+  occurrences Int      @default(1)
+  /// valid | invalid | unjudged
+  aiVerdict   String   @default("unjudged")
+  aiReason    String   @default("")
+  /// pending | approved | rejected
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, normalized])
+  @@index([status, updatedAt])
+}
+
+/// The fixed set of prompts for a given day's Daily Dive.
+model DailyChallenge {
+  id        String   @id @default(cuid())
+  /// YYYY-MM-DD (UTC)
+  date      String   @unique
+  /// JSON array of prompt ids
+  promptIds String
+  createdAt DateTime @default(now())
+}
+
+/// Server-side state for a daily or infinite run. The server is the source of truth.
+model Run {
+  id             String    @id @default(cuid())
+  /// Secret the client must present to act on the run.
+  token          String
+  /// daily | infinite
+  mode           String
+  /// YYYY-MM-DD for daily runs, "" for infinite
+  date           String    @default("")
+  playerId       String
+  ipHash         String
+  name           String?
+  /// "date:playerId" for daily runs so each player gets one daily run; null for infinite
+  dailyKey       String?   @unique
+  /// JSON array of prompt ids served so far (or the daily set)
+  promptIds      String    @default("[]")
+  /// JSON array of prompt ids the client has already seen (infinite only)
+  excludeIds     String    @default("[]")
+  currentIndex   Int       @default(0)
+  currentPromptId String?
+  promptIssuedAt DateTime?
+  airMs          Int       @default(0)
+  depth          Int       @default(0)
+  score          Int       @default(0)
+  /// JSON array of per-prompt results
+  results        String    @default("[]")
+  /// active | finished
+  status         String    @default("active")
+  createdAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  @@index([mode, status, depth])
+}
+
+/// Fixed window rate limiting that works across serverless instances.
+model RateLimit {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+}

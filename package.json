@@ -1,0 +1,44 @@
+{
+  "name": "deepdive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:sqlite": "node scripts/sqlite-schema.mjs && prisma db push --schema prisma/sqlite/schema.prisma && prisma generate --schema prisma/sqlite/schema.prisma",
+    "seed:starter": "tsx scripts/seed-starter.ts",
+    "seed:ai": "NODE_OPTIONS=--conditions=react-server tsx scripts/seed-ai.ts",
+    "topup": "NODE_OPTIONS=--conditions=react-server tsx scripts/topup.ts",
+    "seed": "npm run seed:starter && npm run seed:ai"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.137.0",
+    "@prisma/client": "^6.19.3",
+    "next": "^15.5.28",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.28",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
