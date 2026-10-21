@@ -57,6 +57,9 @@ export class RunError extends Error {
   }
 }
 
+/** Placeholder in currentPromptId while an answer is being scored. */
+const ANSWERING = "__answering__";
+
 function newToken(): string {
   return randomBytes(24).toString("base64url");
 }
@@ -76,7 +79,7 @@ function msLimit(run: Run): number {
 
 async function toState(run: Run): Promise<RunState> {
   let prompt: LivePrompt | null = null;
-  if (run.status === "active" && run.currentPromptId && run.promptIssuedAt) {
+  if (run.status === "active" && run.currentPromptId && run.currentPromptId !== ANSWERING && run.promptIssuedAt) {
     const p = await db.prompt.findUnique({ where: { id: run.currentPromptId }, select: { id: true, text: true, category: true } });
     if (p) {
       const elapsed = Date.now() - run.promptIssuedAt.getTime();
@@ -202,22 +205,35 @@ export async function answerPrompt(runId: string, token: string, rawAnswer: stri
   const promptId = run.currentPromptId;
   const elapsed = Date.now() - run.promptIssuedAt.getTime();
 
-  // Claim the prompt first so a double submit can't be scored twice.
+  // Claim the prompt first so a double submit can't be scored twice. The sentinel also
+  // stops a concurrent `next` from issuing a prompt until this answer is recorded.
   const claimed = await db.run.updateMany({
     where: { id: run.id, currentPromptId: promptId, status: "active" },
-    data: { currentPromptId: null, promptIssuedAt: null },
+    data: { currentPromptId: ANSWERING, promptIssuedAt: null },
   });
   if (claimed.count !== 1) throw new RunError("Already answered.", 409);
-
-  let timedOut: boolean;
-  let effectiveElapsed = elapsed;
-  if (run.mode === "daily") {
-    timedOut = elapsed > (DAILY.secondsPerPrompt + DAILY.graceSeconds) * 1000;
-  } else {
-    // A little latency allowance per answer, then air drains.
-    effectiveElapsed = Math.max(0, elapsed - INFINITE.graceSeconds * 1000);
-    timedOut = effectiveElapsed >= run.airMs;
+  try {
+    return await scoreClaimedAnswer(run, promptId, elapsed, rawAnswer, ipHash);
+  } catch (err) {
+    // Release the run so the player can carry on if scoring failed unexpectedly.
+    await db.run.updateMany({ where: { id: run.id, currentPromptId: ANSWERING }, data: { currentPromptId: null } });
+    throw err;
   }
+}
+
+async function scoreClaimedAnswer(
+  run: Run,
+  promptId: string,
+  elapsed: number,
+  rawAnswer: string,
+  ipHash: string,
+): Promise<{ reveal: Reveal; state: RunState }> {
+
+  // Answers arriving within a small network grace after the clock hits zero still count.
+  const timedOut =
+    run.mode === "daily"
+      ? elapsed > (DAILY.secondsPerPrompt + DAILY.graceSeconds) * 1000
+      : elapsed > run.airMs + INFINITE.graceSeconds * 1000;
 
   const evaluation: Evaluation = timedOut
     ? { valid: false, answerId: null, canonical: null, normalized: "", matchedBy: "timeout" }
@@ -244,6 +260,7 @@ export async function answerPrompt(runId: string, token: string, rawAnswer: stri
   });
 
   const data: Partial<Run> = {
+    currentPromptId: null,
     results: JSON.stringify(results),
     currentIndex: run.currentIndex + 1,
     depth: run.depth + reward.depth,
@@ -255,7 +272,7 @@ export async function answerPrompt(runId: string, token: string, rawAnswer: stri
       data.finishedAt = new Date();
     }
   } else {
-    const air = timedOut ? 0 : nextAir(run.airMs, effectiveElapsed, reveal.valid ? reward : null);
+    const air = timedOut ? 0 : nextAir(run.airMs, elapsed, reveal.valid ? reward : null);
     data.airMs = air;
     if (air <= 0) {
       data.status = "finished";

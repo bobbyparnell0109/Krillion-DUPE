@@ -18,11 +18,12 @@ export function rewardFor(tier: TierId): Reward {
 
 /**
  * Apply elapsed thinking time and the reward to an infinite run's air supply.
- * Returns the new air in ms (0 means the run is over).
+ * The caller rejects answers that arrive later than the latency grace, so a valid answer
+ * that lands right at the bell still earns its bonus. Returns the new air in ms
+ * (0 means the run is over).
  */
 export function nextAir(currentAirMs: number, elapsedMs: number, reward: Reward | null): number {
-  const afterDrain = currentAirMs - Math.max(0, elapsedMs);
-  if (afterDrain <= 0) return 0;
+  const afterDrain = Math.max(0, currentAirMs - Math.max(0, elapsedMs));
   const bonus = reward ? reward.airBonusMs : 0;
   return Math.min(INFINITE.maxAirSeconds * 1000, afterDrain + bonus);
 }

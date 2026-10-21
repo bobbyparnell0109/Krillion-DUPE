@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+/* Design tokens. Colours chosen for AA contrast on the dark ocean background. */
+@theme {
+  --color-abyss: #020617;
+  --color-deep: #04122b;
+  --color-ocean: #0b2a55;
+  --color-surface: #1474b8;
+  --color-foam: #e6f6ff;
+  --color-mist: #a9c8e0;
+  --color-kelp: #4ade80;
+  --color-coral: #fb7185;
+  --color-sunlit: #facc15;
+  --color-glow: #5eead4;
+  --font-display: "Trebuchet MS", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  /* 0 at the surface, 1 at the bottom of the trench. Set by OceanBackdrop. */
+  --depth: 0;
+}
+
+html {
+  background: var(--color-abyss);
+}
+
+body {
+  min-height: 100dvh;
+  color: var(--color-foam);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible focus for keyboard users everywhere. */
+:focus-visible {
+  outline: 3px solid var(--color-glow);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--color-foam);
+  color: var(--color-abyss);
+  border-radius: 0.5rem;
+  font-weight: 700;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* ---------- Ocean ---------- */
+.ocean {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, #1474b8 calc((1 - var(--depth)) * 100%), #020617) 0%,
+    color-mix(in oklab, #0b2a55 calc((1 - var(--depth)) * 100%), #01030c) 45%,
+    color-mix(in oklab, #04122b calc((1 - var(--depth)) * 100%), #000000) 100%
+  );
+  transition: background 1.2s ease;
+}
+
+/* Light rays near the surface, fading out with depth. */
+.ocean::before {
+  content: "";
+  position: absolute;
+  inset: -20% -10% auto;
+  height: 70%;
+  background: repeating-linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0.06) 0 40px,
+    transparent 40px 120px
+  );
+  filter: blur(18px);
+  opacity: calc(0.9 - var(--depth) * 1.2);
+  animation: rays 14s ease-in-out infinite alternate;
+}
+
+/* Bioluminescent specks that appear as it gets dark. */
+.ocean::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, rgb(94 234 212 / 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 70% 60%, rgb(125 211 252 / 0.7), transparent),
+    radial-gradient(2px 2px at 40% 80%, rgb(167 139 250 / 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 85% 20%, rgb(94 234 212 / 0.6), transparent),
+    radial-gradient(1px 1px at 10% 70%, rgb(250 204 21 / 0.6), transparent);
+  opacity: calc(var(--depth) * 1.1 - 0.2);
+  animation: twinkle 6s ease-in-out infinite alternate;
+}
+
+.bubble {
+  position: absolute;
+  bottom: -40px;
+  border-radius: 9999px;
+  border: 1px solid rgb(230 246 255 / 0.35);
+  background: radial-gradient(circle at 30% 30%, rgb(255 255 255 / 0.35), rgb(255 255 255 / 0.04) 60%);
+  animation: rise linear infinite;
+}
+
+@keyframes rise {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 0.8; }
+  50% { transform: translate3d(12px, -55vh, 0); }
+  100% { transform: translate3d(-8px, -115vh, 0); opacity: 0; }
+}
+@keyframes rays {
+  from { transform: translateX(-3%) skewX(-2deg); }
+  to { transform: translateX(3%) skewX(2deg); }
+}
+@keyframes twinkle {
+  from { transform: translateY(0); }
+  to { transform: translateY(-12px); }
+}
+
+/* ---------- Reveal animations ---------- */
+@keyframes pop-in {
+  0% { transform: scale(0.6) translateY(20px); opacity: 0; }
+  60% { transform: scale(1.06) translateY(-4px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes sink-in {
+  from { transform: translateY(-24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}
+.animate-pop { animation: pop-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.animate-sink { animation: sink-in 0.45s ease-out both; }
+.animate-shake { animation: shake 0.45s ease both; }
+.legendary {
+  background: linear-gradient(90deg, #facc15, #fff7c2, #facc15, #f59e0b, #facc15);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.5s linear infinite;
+}
+
+.glass {
+  background: rgb(4 18 43 / 0.62);
+  border: 1px solid rgb(169 200 224 / 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Respect reduced motion: keep transitions instant and remove ambient animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .bubble { display: none; }
+  .legendary { color: #facc15; background: none; }
+}

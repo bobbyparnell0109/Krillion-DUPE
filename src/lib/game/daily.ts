@@ -68,10 +68,14 @@ export function pickDaily(pool: Pickable[], seed: string, count: number = DAILY.
   };
   for (let i = 0; i < count; i++) {
     const want = plan[i] ?? "medium";
-    take((p) => p.difficulty === want && !usedCats.has(p.category)) ||
-      take((p) => p.difficulty === want) ||
-      take((p) => !usedCats.has(p.category)) ||
-      take(() => true);
+    // Relax the constraints one at a time until something fits.
+    const fallbacks: Array<(p: Pickable) => boolean> = [
+      (p) => p.difficulty === want && !usedCats.has(p.category),
+      (p) => p.difficulty === want,
+      (p) => !usedCats.has(p.category),
+      () => true,
+    ];
+    fallbacks.some(take);
   }
   const order = { easy: 0, medium: 1, hard: 2 } as Record<string, number>;
   return chosen.sort((a, b) => (order[a.difficulty] ?? 1) - (order[b.difficulty] ?? 1)).map((p) => p.id);

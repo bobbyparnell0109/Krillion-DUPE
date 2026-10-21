@@ -21,7 +21,7 @@ export interface TierDef {
 
 /** Tier 0 is "no match". Tiers 1..5 are accepted answers from most to least common. */
 export const TIERS: Record<TierId, TierDef> = {
-  0: { id: 0, name: "Washed Up", blurb: "Not on our charts.", points: 0, depth: 0, airBonus: 0, emoji: "⬛", color: "#64748b" },
+  0: { id: 0, name: "Washed Up", blurb: "Not on our charts.", points: 0, depth: 0, airBonus: 0, emoji: "⬛", color: "#94a3b8" },
   1: { id: 1, name: "Plankton", blurb: "Everyone floats here.", points: 10, depth: 40, airBonus: 8, emoji: "🟩", color: "#4ade80" },
   2: { id: 2, name: "Shallows", blurb: "A popular pick.", points: 25, depth: 100, airBonus: 12, emoji: "🟦", color: "#38bdf8" },
   3: { id: 3, name: "Reef", blurb: "Off the beaten path.", points: 45, depth: 180, airBonus: 12, emoji: "🟪", color: "#a78bfa" },

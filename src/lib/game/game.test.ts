@@ -49,7 +49,9 @@ describe("scoring", () => {
     expect(nextAir(45000, 5000, rewardFor(1))).toBe(48000);
     expect(nextAir(45000, 5000, null)).toBe(40000);
     expect(nextAir(58000, 0, rewardFor(5))).toBe(60000);
-    expect(nextAir(3000, 4000, rewardFor(5))).toBe(0);
+    // Out of air: only a valid answer at the bell (within grace, checked by the caller) survives.
+    expect(nextAir(3000, 4000, null)).toBe(0);
+    expect(nextAir(3000, 4000, rewardFor(5))).toBe(16000);
   });
 });
 
